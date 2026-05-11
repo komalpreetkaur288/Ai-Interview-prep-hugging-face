@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - AI virtual interview preparation</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="nav-brand"> AI virtual interview preparation</div>
+        <div class="nav-links">
+            <span>Welcome, <strong>{{ username }}</strong></span>
+            <a href="/logout" class="btn btn-danger">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+        {% endwith %}
+
+        <!-- Resume Upload Banner -->
+        <div class="resume-banner {% if has_resume %}resume-banner-done{% endif %}">
+            <div class="resume-banner-left">
+                <span class="resume-banner-icon">{% if has_resume %}✅{% else %}📄{% endif %}</span>
+                <div>
+                    {% if has_resume %}
+                    <strong>Resume Uploaded</strong>
+                    <p>Skills detected:
+                        {% for skill in resume_skills[:5] %}
+                        <span class="skill-mini">{{ skill }}</span>
+                        {% endfor %}
+                        {% if resume_skills|length > 5 %}
+                        <span class="skill-mini">+{{ resume_skills|length - 5 }} more</span>
+                        {% endif %}
+                    </p>
+                    {% else %}
+                    <strong>No Resume Uploaded</strong>
+                    <p>Upload your resume to get personalized interview questions based on your skills.</p>
+                    {% endif %}
+                </div>
+            </div>
+            <a href="/upload" class="btn {% if has_resume %}btn-outline{% else %}btn-primary{% endif %}">
+                {% if has_resume %}🔄 Re-upload Resume{% else %}📤 Upload Resume{% endif %}
+            </a>
+        </div>
+
+        <div class="dashboard-grid">
+            <!-- Start Interview Card -->
+            <div class="card">
+                <h2>🚀 Start Interview</h2>
+
+                {% if has_resume %}
+                <div class="resume-ready-box">
+                    <p>✅ Resume loaded! Start a personalized interview based on your skills.</p>
+                    <a href="/interview-ready" class="btn btn-success btn-full">
+                        Start Resume-Based Interview
+                    </a>
+                </div>
+                <div class="divider">OR choose a topic</div>
+                {% endif %}
+
+                <form action="/interview-ready" method="GET">
+                    <div class="form-group">
+                        <label>Select Topic</label>
+                        <select name="topic" class="form-select" required>
+                            <option value="" disabled selected>-- Pick a Topic --</option>
+                            {% for topic in topics %}
+                            <option value="{{ topic }}">{{ topic.title() }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full">Start Topic Interview</button>
+                </form>
+            </div>
+
+            <!-- Past Sessions -->
+            <div class="card">
+                <h2>📊 Past Sessions</h2>
+                {% if sessions %}
+                <div class="sessions-list">
+                    {% for s in sessions %}
+                    <div class="session-item">
+                        <div class="session-info">
+                            <span class="session-date">{{ s['date'][:10] }}</span>
+                            <span class="session-count">{{ s['total'] }} questions</span>
+                        </div>
+                        <div class="session-score">
+                            Avg: <strong>{{ '%.1f'|format(s['avg_score'] or 0) }}/10</strong>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="empty-state">No interviews yet. Start your first one!</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Tips -->
+        <div class="card tips-card">
+            <h2>💡 Tips for Success</h2>
+            <div class="tips-grid">
+                <div class="tip"><span>📤</span>
+                    <p>Upload resume for personalized questions</p>
+                </div>
+                <div class="tip"><span>🎤</span>
+                    <p>Use the mic to speak your answers</p>
+                </div>
+                <div class="tip"><span>⏱️</span>
+                    <p>60 seconds per question</p>
+                </div>
+                <div class="tip"><span>📷</span>
+                    <p>Keep face visible in camera during interview</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

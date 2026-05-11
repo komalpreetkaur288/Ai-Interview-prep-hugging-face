@@ -1,0 +1,9 @@
+flask
+flask-login
+werkzeug
+scikit-learn
+PyPDF2
+requests
+gTTS
+python-dotenv
+groq

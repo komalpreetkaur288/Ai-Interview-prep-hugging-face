@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Resume - AI virtual interview preparation</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <!-- Loading Overlay (shown while resume is being processed) -->
+    <div class="loading-overlay" id="loadingOverlay" style="display:none">
+        <div class="loading-box">
+            <div class="spinner"></div>
+            <h2>Analyzing Your Resume...</h2>
+            <p id="loadingStep">Extracting text from PDF...</p>
+            <div class="loading-steps">
+                <div class="lstep active" id="lstep1">📄 Reading PDF</div>
+                <div class="lstep" id="lstep2">🔍 Extracting Skills</div>
+                <div class="lstep" id="lstep3">🤖 Generating Questions</div>
+                <div class="lstep" id="lstep4">✅ Almost Ready!</div>
+            </div>
+        </div>
+    </div>
+
+    <nav class="navbar">
+        <div class="nav-brand">🎯 AI virtual interview preparation</div>
+        <div class="nav-links">
+            <a href="/dashboard" class="btn btn-outline">Dashboard</a>
+            <a href="/logout" class="btn btn-danger">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="card upload-card">
+            <div class="upload-header-icon">📄</div>
+            <h2>Upload Your Resume</h2>
+            <p>Upload a PDF resume. We will analyze it and generate personalized interview questions based on your skills.</p>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endwith %}
+
+            <form method="POST" enctype="multipart/form-data" id="uploadForm">
+                <div class="upload-area" id="uploadArea" onclick="document.getElementById('resumeInput').click()">
+                    <div class="upload-icon">📁</div>
+                    <p class="upload-main-text">Click to select PDF or drag & drop here</p>
+                    <p class="upload-sub-text">Only PDF files are supported</p>
+                    <input type="file" name="resume" accept=".pdf" id="resumeInput" style="display:none">
+                </div>
+
+                <div class="file-selected" id="fileSelected" style="display:none">
+                    <span class="file-icon">📎</span>
+                    <span id="fileName"></span>
+                    <button type="button" class="file-remove" onclick="removeFile()">✕</button>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-full" id="uploadBtn" disabled onclick="startLoading()">
+                    🔍 Analyze Resume & Generate Questions
+                </button>
+            </form>
+
+            <div class="upload-info">
+                <h3>What we analyze:</h3>
+                <div class="analyze-steps">
+                    <div class="analyze-step">
+                        <span>1️⃣</span>
+                        <div>
+                            <strong>Extract Text</strong>
+                            <p>Read and parse your PDF resume</p>
+                        </div>
+                    </div>
+                    <div class="analyze-step">
+                        <span>2️⃣</span>
+                        <div>
+                            <strong>Detect Skills</strong>
+                            <p>Identify programming languages, tools, and technologies</p>
+                        </div>
+                    </div>
+                    <div class="analyze-step">
+                        <span>3️⃣</span>
+                        <div>
+                            <strong>Generate Questions</strong>
+                            <p>Create personalized interview questions from your skills</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const input = document.getElementById('resumeInput');
+        const uploadArea = document.getElementById('uploadArea');
+        const fileSelected = document.getElementById('fileSelected');
+        const fileName = document.getElementById('fileName');
+        const uploadBtn = document.getElementById('uploadBtn');
+
+        input.addEventListener('change', function () {
+            if (this.files[0]) showFile(this.files[0]);
+        });
+
+        function showFile(file) {
+            fileName.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+            fileSelected.style.display = 'flex';
+            uploadArea.style.display = 'none';
+            uploadBtn.disabled = false;
+        }
+
+        function removeFile() {
+            input.value = '';
+            fileSelected.style.display = 'none';
+            uploadArea.style.display = 'flex';
+            uploadBtn.disabled = true;
+        }
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', e => {
+            e.preventDefault();
+            uploadArea.classList.add('drag-over');
+        });
+        uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('drag-over'));
+        uploadArea.addEventListener('drop', e => {
+            e.preventDefault();
+            uploadArea.classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if (file && file.name.endsWith('.pdf')) {
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                input.files = dt.files;
+                showFile(file);
+            } else {
+                alert('Please drop a PDF file.');
+            }
+        });
+
+        // Show loading animation when form submits
+        function startLoading() {
+            const overlay = document.getElementById('loadingOverlay');
+            overlay.style.display = 'flex';
+
+            const steps = ['lstep1', 'lstep2', 'lstep3', 'lstep4'];
+            const msgs = [
+                'Extracting text from PDF...',
+                'Detecting your skills...',
+                'Generating personalized questions...',
+                'Almost ready! Just a moment...'
+            ];
+            let i = 0;
+            const interval = setInterval(() => {
+                if (i < steps.length) {
+                    steps.forEach(s => document.getElementById(s).classList.remove('active'));
+                    document.getElementById(steps[i]).classList.add('active');
+                    document.getElementById('loadingStep').textContent = msgs[i];
+                    i++;
+                } else {
+                    clearInterval(interval);
+                }
+            }, 900);
+        }
+    </script>
+</body>
+</html>

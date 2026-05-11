@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Results - AI virtual interview preparation</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">🎯 AI virtual interview preparation</div>
+        <div class="nav-links">
+            <a href="/dashboard" class="btn btn-outline">Dashboard</a>
+            <a href="/logout" class="btn btn-danger">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Score Summary -->
+        <div class="card score-summary">
+            <h2>📊 Interview Results</h2>
+            <div class="score-circle-wrap">
+                <div class="score-circle {% if percentage >= 70 %}score-good{% elif percentage >= 40 %}score-avg{% else %}score-low{% endif %}">
+                    <span class="score-percent">{{ percentage }}%</span>
+                    <small>Overall</small>
+                </div>
+            </div>
+            <div class="score-details">
+                <div class="score-stat">
+                    <span>Total Score</span>
+                    <strong>{{ total_score }} / {{ max_score }}</strong>
+                </div>
+                <div class="score-stat">
+                    <span>Questions</span>
+                    <strong>{{ rows|length }}</strong>
+                </div>
+                <div class="score-stat">
+                    <span>Performance</span>
+                    <strong>
+                        {% if percentage >= 70 %}Excellent 🌟{% elif percentage >= 40 %}Average 👍{% else %}Needs Work 📚{% endif %}
+                    </strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed Results -->
+        <div class="results-list">
+            <h2>Detailed Breakdown</h2>
+            {% for row in rows %}
+            <div class="result-item">
+                <div class="result-header">
+                    <span class="result-num">Q{{ loop.index }}</span>
+                    <span class="result-score score-badge-{% if row['score'] >= 7 %}good{% elif row['score'] >= 4 %}avg{% else %}low{% endif %}">
+                        {{ row['score'] }}/10
+                    </span>
+                </div>
+                <div class="result-question">
+                    <strong>Question:</strong> {{ row['question'] }}
+                </div>
+                <div class="result-answer {% if row['answer'] == 'SKIPPED' %}skipped{% endif %}">
+                    <strong>Your Answer:</strong>
+                    {% if row['answer'] == 'SKIPPED' %}
+                        <em>Skipped</em>
+                    {% else %}
+                        {{ row['answer'] }}
+                    {% endif %}
+                </div>
+                {% if row['ideal_answer'] %}
+                <div class="result-answer" style="margin-top: 10px; background: #f0fdf4; padding: 10px; border-radius: 6px; border-left: 4px solid #059669;">
+                    <strong style="color: #065f46;">Ideal Answer:</strong>
+                    {{ row['ideal_answer'] }}
+                </div>
+                {% endif %}
+                <div class="result-feedback feedback-{% if row['score'] >= 7 %}good{% elif row['score'] >= 4 %}avg{% else %}low{% endif %}">
+                    💬 {{ row['feedback'] }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="result-actions">
+            <a href="/start" class="btn btn-primary">🔄 Try Again</a>
+            <a href="/dashboard" class="btn btn-outline">🏠 Dashboard</a>
+        </div>
+    </div>
+</body>
+</html>

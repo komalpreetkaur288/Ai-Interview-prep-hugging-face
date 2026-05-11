@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interview Ready - AI virtual interview preparation</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand"> AI virtual interview preparation</div>
+        <div class="nav-links">
+            <a href="/dashboard" class="btn btn-outline">Dashboard</a>
+            <a href="/logout" class="btn btn-danger">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="ready-wrapper">
+
+            <!-- Step 1: Resume Skills or Topic Selector -->
+            {% if has_resume %}
+            <div class="card ready-card">
+                <div class="ready-icon">✅</div>
+                <h2>Resume Analyzed Successfully!</h2>
+                <p class="ready-subtitle">Questions will be generated based on these detected skills:</p>
+                <div class="skills-wrap">
+                    {% if skills %}
+                        {% for skill in skills %}
+                            <span class="skill-badge">{{ skill }}</span>
+                        {% endfor %}
+                    {% else %}
+                        <p class="no-skills">No specific skills detected. General questions will be used.</p>
+                    {% endif %}
+                </div>
+                {% if summary %}
+                <div class="resume-summary">
+                    <strong>Resume Summary:</strong>
+                    <p>{{ summary }}</p>
+                </div>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="card ready-card">
+                <div class="ready-icon">📋</div>
+                <h2>Topic: <span style="color:#4f46e5">{{ request.args.get('topic', 'HR').title() }}</span></h2>
+                <p class="ready-subtitle">Interview questions will be randomly selected from this topic.</p>
+                <input type="hidden" id="selectedTopic" value="{{ request.args.get('topic', 'hr') }}">
+            </div>
+            {% endif %}
+
+            <!-- Step 2: Camera Check -->
+            <div class="card camera-check-card">
+                <div class="step-header">
+                    <span class="step-num">Step 1</span>
+                    <h2>📷 Camera Verification</h2>
+                </div>
+                <p>You must turn on your camera and ensure your face is detected before starting the interview.</p>
+
+                <div class="camera-container">
+                    <video id="cameraPreview" autoplay muted playsinline></video>
+                    <div class="camera-overlay" id="cameraOverlay">
+                        <div class="camera-placeholder">
+                            <span>📷</span>
+                            <p>Camera not started</p>
+                        </div>
+                    </div>
+                    <div class="camera-status-bar" id="cameraStatusBar">
+                        <span id="cameraStatusDot" class="status-dot dot-off"></span>
+                        <span id="cameraStatusText">Camera off</span>
+                    </div>
+                </div>
+
+                <!-- Face Detection Status -->
+                <div class="face-check-info" id="faceCheckInfo" style="display:none">
+                    <div class="face-indicator" id="faceIndicator">
+                        <span id="faceIcon">👤</span>
+                        <span id="faceText">Looking for your face...</span>
+                    </div>
+                </div>
+
+                <button class="btn btn-outline btn-full" id="startCameraBtn" onclick="startCamera()">
+                    🎥 Turn On Camera
+                </button>
+            </div>
+
+            <!-- Step 3: Start Interview -->
+            <div class="card start-card">
+                <div class="step-header">
+                    <span class="step-num">Step 2</span>
+                    <h2>🚀 Start Interview</h2>
+                </div>
+                <p>Your interview will have <strong>{{ 8 if has_resume else 5 }} questions</strong>, each with a <strong>60-second timer</strong>.</p>
+
+                <ul class="pre-start-tips">
+                    <li>🎤 Speak or type your answers</li>
+                    <li>⏭️ You can skip questions</li>
+                    <li>🔊 Each question will be spoken aloud</li>
+                    <li>📷 Stay in front of the camera throughout</li>
+                </ul>
+
+                <!-- Checklist showing what's blocking start -->
+                <div class="start-checklist">
+                    <div class="check-item" id="checkCamera">
+                        <span class="check-icon">⬜</span>
+                        <span>Camera must be ON</span>
+                    </div>
+                    <div class="check-item" id="checkFace">
+                        <span class="check-icon">⬜</span>
+                        <span>Face must be detected in camera</span>
+                    </div>
+                </div>
+
+                <form action="/start" method="GET" id="startForm">
+                    {% if not has_resume %}
+                    <input type="hidden" name="topic" id="topicInput" value="{{ request.args.get('topic', 'hr') }}">
+                    {% endif %}
+                    <button type="submit" class="btn btn-primary btn-full btn-start"
+                            id="startBtn" disabled>
+                        🔒 Complete Camera Check to Start
+                    </button>
+                </form>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        let stream = null;
+        let cameraOn = false;
+        let faceDetected = false;
+        let faceCheckInterval = null;
+
+        function updateStartButton() {
+            const startBtn = document.getElementById('startBtn');
+            const checkCamera = document.getElementById('checkCamera');
+            const checkFace = document.getElementById('checkFace');
+
+            // Update checklist visuals
+            checkCamera.querySelector('.check-icon').textContent = cameraOn ? '✅' : '⬜';
+            checkCamera.style.color = cameraOn ? '#059669' : '#64748b';
+
+            checkFace.querySelector('.check-icon').textContent = faceDetected ? '✅' : '⬜';
+            checkFace.style.color = faceDetected ? '#059669' : '#64748b';
+
+            if (cameraOn && faceDetected) {
+                startBtn.disabled = false;
+                startBtn.textContent = '🚀 Start Interview';
+                startBtn.style.background = '#059669';
+            } else if (cameraOn && !faceDetected) {
+                startBtn.disabled = true;
+                startBtn.textContent = '👤 Waiting for face detection...';
+            } else {
+                startBtn.disabled = true;
+                startBtn.textContent = '🔒 Complete Camera Check to Start';
+            }
+        }
+
+        async function startCamera() {
+            const video = document.getElementById('cameraPreview');
+            const overlay = document.getElementById('cameraOverlay');
+            const statusDot = document.getElementById('cameraStatusDot');
+            const statusText = document.getElementById('cameraStatusText');
+            const faceCheckInfo = document.getElementById('faceCheckInfo');
+            const btn = document.getElementById('startCameraBtn');
+
+            btn.textContent = '⏳ Accessing camera...';
+            btn.disabled = true;
+
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                video.srcObject = stream;
+                overlay.style.display = 'none';
+
+                statusDot.className = 'status-dot dot-on';
+                statusText.textContent = '🟢 Camera active';
+                faceCheckInfo.style.display = 'block';
+
+                cameraOn = true;
+                faceDetected = false;
+                updateStartButton();
+
+                btn.textContent = '🔄 Restart Camera';
+                btn.disabled = false;
+                btn.onclick = restartCamera;
+
+                startFaceDetection(video);
+
+            } catch (err) {
+                statusDot.className = 'status-dot dot-error';
+                statusText.textContent = '🔴 Camera access denied';
+                btn.textContent = '🎥 Retry Camera Access';
+                btn.disabled = false;
+
+                faceCheckInfo.style.display = 'block';
+                document.getElementById('faceIcon').textContent = '❌';
+                document.getElementById('faceText').textContent = 'Camera permission denied. Please allow camera access.';
+                document.getElementById('faceText').style.color = '#dc2626';
+
+                cameraOn = false;
+                faceDetected = false;
+                updateStartButton();
+            }
+        }
+
+        function startFaceDetection(video) {
+            const faceIcon = document.getElementById('faceIcon');
+            const faceText = document.getElementById('faceText');
+
+            // Clear any previous interval
+            if (faceCheckInterval) clearInterval(faceCheckInterval);
+
+            if ('FaceDetector' in window) {
+                // Use native FaceDetector API (Chrome/Edge with flag)
+                const detector = new FaceDetector({ fastMode: true });
+
+                faceIcon.textContent = '🔍';
+                faceText.textContent = 'Scanning for your face...';
+                faceText.style.color = '#d97706';
+
+                let consecutiveFaces = 0;
+                faceCheckInterval = setInterval(async () => {
+                    try {
+                        const faces = await detector.detect(video);
+                        if (faces.length > 0) {
+                            consecutiveFaces++;
+                            if (consecutiveFaces >= 4) { // ~3.2 seconds
+                                clearInterval(faceCheckInterval);
+                                faceIcon.textContent = '✅';
+                                faceText.textContent = 'Face verified! You are ready to start.';
+                                faceText.style.color = '#059669';
+                                faceDetected = true;
+                                updateStartButton();
+                            } else {
+                                faceIcon.textContent = '⏳';
+                                faceText.textContent = `Hold still... verifying face (${consecutiveFaces}/4)`;
+                                faceText.style.color = '#d97706';
+                            }
+                        } else {
+                            consecutiveFaces = 0;
+                            faceIcon.textContent = '👤';
+                            faceText.textContent = 'No face detected. Move closer to the camera.';
+                            faceText.style.color = '#dc2626';
+                            if (faceDetected) {
+                                faceDetected = false;
+                                updateStartButton();
+                            }
+                        }
+                    } catch (e) {
+                        // FaceDetector threw an error, fall back
+                        clearInterval(faceCheckInterval);
+                        useFallbackFaceCheck(faceIcon, faceText);
+                    }
+                }, 800);
+
+            } else {
+                // Fallback: no FaceDetector API — use brightness sampling via canvas
+                useFallbackFaceCheck(faceIcon, faceText);
+            }
+        }
+
+        async function useFallbackFaceCheck(faceIcon, faceText) {
+            faceIcon.textContent = '⏳';
+            faceText.textContent = 'Loading AI face detection...';
+            faceText.style.color = '#d97706';
+
+            try {
+                // Dynamically load face-api.js if not present
+                if (!window.faceapi) {
+                    const script = document.createElement('script');
+                    script.src = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js';
+                    document.body.appendChild(script);
+                    await new Promise((resolve, reject) => {
+                        script.onload = resolve;
+                        script.onerror = () => reject('Failed to load face-api.js');
+                    });
+                }
+
+                const video = document.getElementById('cameraPreview');
+                
+                // Load the tiny face detector model from reliable CDN
+                await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights');
+                
+                faceIcon.textContent = '🔍';
+                faceText.textContent = 'Checking camera feed...';
+                
+                let consecutiveFaces = 0;
+                faceCheckInterval = setInterval(async () => {
+                    if (video.readyState < 2) return;
+                    
+                    const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions());
+                    
+                    if (detections.length > 0) {
+                        consecutiveFaces++;
+                        if (consecutiveFaces >= 5) { // ~3 seconds
+                            clearInterval(faceCheckInterval);
+                            faceIcon.textContent = '✅';
+                            faceText.textContent = 'Face verified! You are ready to start.';
+                            faceText.style.color = '#059669';
+                            faceDetected = true;
+                            updateStartButton();
+                        } else {
+                            faceIcon.textContent = '⏳';
+                            faceText.textContent = `Hold still... verifying face (${consecutiveFaces}/5)`;
+                            faceText.style.color = '#059669';
+                        }
+                    } else {
+                        consecutiveFaces = 0;
+                        faceIcon.textContent = '👤';
+                        faceText.textContent = 'No face detected. Please look into the camera.';
+                        faceText.style.color = '#dc2626';
+                        if (faceDetected) {
+                            faceDetected = false;
+                            updateStartButton();
+                        }
+                    }
+                }, 600);
+
+            } catch (err) {
+                console.error("Face API failed:", err);
+                faceIcon.textContent = '⚠️';
+                faceText.textContent = 'Could not load face detection. Check internet connection.';
+                faceText.style.color = '#dc2626';
+                
+                // Absolute fallback so they aren't permanently locked out if CDN is blocked
+                faceDetected = true; 
+                updateStartButton();
+            }
+        }
+
+        function restartCamera() {
+            if (faceCheckInterval) clearInterval(faceCheckInterval);
+            if (stream) stream.getTracks().forEach(t => t.stop());
+
+            cameraOn = false;
+            faceDetected = false;
+            updateStartButton();
+
+            document.getElementById('cameraOverlay').style.display = 'flex';
+            document.getElementById('cameraStatusDot').className = 'status-dot dot-off';
+            document.getElementById('cameraStatusText').textContent = 'Camera off';
+            document.getElementById('faceCheckInfo').style.display = 'none';
+            document.getElementById('startCameraBtn').textContent = '🎥 Turn On Camera';
+            document.getElementById('startCameraBtn').onclick = startCamera;
+
+            startCamera();
+        }
+
+        // Stop camera stream before navigating to interview
+        document.getElementById('startBtn').addEventListener('click', function () {
+            if (stream) stream.getTracks().forEach(t => t.stop());
+        });
+
+        // Initialize checklist on load
+        updateStartButton();
+    </script>
+</body>
+</html>
